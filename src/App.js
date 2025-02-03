@@ -9,6 +9,7 @@ export const ThemeContext = createContext();
 
 const App = () => {
   const [isDarkTheme, setIsDarkTheme] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   // TODO: Exercice 2.2 - Ajouter l'état pour la langue
 
   return (
@@ -23,8 +24,11 @@ const App = () => {
           </div>
         </header>
         <main>
-          <ProductSearch />
-          <ProductList />
+          <ProductSearch
+              searchTerm={searchTerm}
+              onSearchChange={setSearchTerm}
+          />
+          <ProductList searchTerm={searchTerm} />
         </main>
       </div>
     </ThemeContext.Provider>

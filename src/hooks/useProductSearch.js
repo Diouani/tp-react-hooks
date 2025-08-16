@@ -1,26 +1,81 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import useDebounce from "./useDebounce";
-
-// TODO: Exercice 3.1 - Créer le hook useDebounce
-// TODO: Exercice 3.2 - Créer le hook useLocalStorage
 
 const useProductSearch = (searchTerm = '') => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filteredProducts, setFilteredProducts] = useState([]);
+  
+  // États pour la pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalProducts, setTotalProducts] = useState(0);
+  const itemsPerPage = 10;
 
-  // TODO: Exercice 4.2 - Ajouter l'état pour la pagination
   const debouncedSearchTerm = useDebounce(searchTerm, 1000);
 
+  // Fonction de rechargement
+  const reload = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const skip = (currentPage - 1) * itemsPerPage;
+      const response = await fetch(
+        `https://api.daaif.net/products?delay=1000&limit=${itemsPerPage}&skip=${skip}`
+      );
+      
+      if (!response.ok) throw new Error('Erreur réseau');
+      
+      const data = await response.json();
+      setProducts(data.products);
+      setTotalProducts(data.total);
+      setTotalPages(Math.ceil(data.total / itemsPerPage));
+      setLoading(false);
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
+    }
+  }, [currentPage, itemsPerPage]);
+
+  // Fonctions de pagination
+  const nextPage = useCallback(() => {
+    if (currentPage < totalPages) {
+      setCurrentPage(prev => prev + 1);
+    }
+  }, [currentPage, totalPages]);
+
+  const previousPage = useCallback(() => {
+    if (currentPage > 1) {
+      setCurrentPage(prev => prev - 1);
+    }
+  }, [currentPage]);
+
+  const goToPage = useCallback((page) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  }, [totalPages]);
+
+  // Chargement initial et rechargement lors du changement de page
   useEffect(() => {
     const fetchProducts = async () => {
+      setLoading(true);
+      setError(null);
+      
       try {
-        // TODO: Exercice 4.2 - Modifier l'URL pour inclure les paramètres de pagination
-        const response = await fetch('https://api.daaif.net/products?delay=1000');
+        const skip = (currentPage - 1) * itemsPerPage;
+        const response = await fetch(
+          `https://api.daaif.net/products?delay=1000&limit=${itemsPerPage}&skip=${skip}`
+        );
+        
         if (!response.ok) throw new Error('Erreur réseau');
+        
         const data = await response.json();
         setProducts(data.products);
+        setTotalProducts(data.total);
+        setTotalPages(Math.ceil(data.total / itemsPerPage));
         setLoading(false);
       } catch (err) {
         setError(err.message);
@@ -29,10 +84,9 @@ const useProductSearch = (searchTerm = '') => {
     };
 
     fetchProducts();
-  }, []); // TODO: Exercice 4.2 - Ajouter les dépendances pour la pagination
+  }, [currentPage, itemsPerPage]);
 
-
-  // Filter products when search term changes
+  // Filtrage des produits quand le terme de recherche change
   useEffect(() => {
     if (!debouncedSearchTerm.trim()) {
       setFilteredProducts(products);
@@ -41,22 +95,29 @@ const useProductSearch = (searchTerm = '') => {
 
     const searchTermLower = debouncedSearchTerm.toLowerCase();
     const filtered = products.filter(product =>
-        product.title.toLowerCase().includes(searchTermLower) ||
-        product.description.toLowerCase().includes(searchTermLower)
+      product.title.toLowerCase().includes(searchTermLower) ||
+      product.description.toLowerCase().includes(searchTermLower)
     );
 
     setFilteredProducts(filtered);
   }, [debouncedSearchTerm, products]);
 
-  // TODO: Exercice 4.1 - Ajouter la fonction de rechargement
-  // TODO: Exercice 4.2 - Ajouter les fonctions pour la pagination
-
   return { 
     products: filteredProducts,
     loading, 
     error,
-    // TODO: Exercice 4.1 - Retourner la fonction de rechargement
-    // TODO: Exercice 4.2 - Retourner les fonctions et états de pagination
+    reload,
+    // États et fonctions de pagination
+    currentPage,
+    totalPages,
+    totalProducts,
+    itemsPerPage,
+    nextPage,
+    previousPage,
+    goToPage,
+    // Indicateurs pour les boutons
+    hasNextPage: currentPage < totalPages,
+    hasPreviousPage: currentPage > 1
   };
 };
 
